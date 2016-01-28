@@ -11,6 +11,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
   Polymer.Base = {
 
+    // Used for `isInstance` type checking; cannot use `instanceof` because
+    // there is no common Polymer.Base in the prototype chain between type
+    // extensions and normal custom elements
+    __isPolymerInstance__: true,
+
     // pluggable features
     // `this` context is a prototype, not an instance
     _addFeature: function(feature) {
@@ -19,6 +24,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
     // `this` context is a prototype, not an instance
     registerCallback: function() {
+      // TODO(sjmiles): perhaps this method should be called from polymer-bootstrap?
+      this._desugarBehaviors(); // abstract
+      this._doBehavior('beforeRegister'); // abstract
       this._registerFeatures();  // abstract
       this._doBehavior('registered'); // abstract
     },
@@ -32,8 +40,15 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
     // reserved for canonical behavior
     attachedCallback: function() {
-      this.isAttached = true;
-      this._doBehavior('attached'); // abstract
+      // NOTE: workaround for:
+      // https://code.google.com/p/chromium/issues/detail?id=516550
+      // To allow querying style/layout data in attached, we defer it
+      // until we are sure rendering is ready.
+      var self = this;
+      Polymer.RenderStatus.whenReady(function() {
+        self.isAttached = true;
+        self._doBehavior('attached'); // abstract
+      });
     },
 
     // reserved for canonical behavior
@@ -43,9 +58,15 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     },
 
     // reserved for canonical behavior
-    attributeChangedCallback: function(name) {
-      this._setAttributeToProperty(this, name); // abstract
-      this._doBehavior('attributeChanged', arguments); // abstract
+    attributeChangedCallback: function(name, oldValue, newValue) {
+      // TODO(sorvell): consider filtering out changes to host attributes
+      // note: this was barely measurable with 3 host attributes.
+      this._attributeChangedImpl(name); // abstract
+      this._doBehavior('attributeChanged', [name, oldValue, newValue]); // abstract
+    },
+
+    _attributeChangedImpl: function(name) {
+      this._setAttributeToProperty(this, name);
     },
 
     /**
@@ -59,9 +80,10 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
      */
     extend: function(prototype, api) {
       if (prototype && api) {
-        Object.getOwnPropertyNames(api).forEach(function(n) {
+        var n$ = Object.getOwnPropertyNames(api);
+        for (var i=0, n; (i<n$.length) && (n=n$[i]); i++) {
           this.copyOwnProperty(n, api, prototype);
-        }, this);
+        }
       }
       return prototype || api;
     },
@@ -117,6 +139,18 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   };
 
   Polymer.Base = Polymer.Base.chainObject(Polymer.Base, HTMLElement.prototype);
+
+  if (window.CustomElements) {
+    Polymer.instanceof = CustomElements.instanceof;
+  } else {
+    Polymer.instanceof = function(obj, ctor) {
+      return obj instanceof ctor;
+    };
+  }
+
+  Polymer.isInstance = function(obj) {
+    return Boolean(obj && obj.__isPolymerInstance__);
+  };
 
   // TODO(sjmiles): ad hoc telemetry
   Polymer.telemetry.instanceCount = 0;

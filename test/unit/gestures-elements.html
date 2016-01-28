@@ -19,15 +19,19 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
   </style>
 
   <template>
-    <div id="div" on-tap="tapHandler"></div>
+    <div id="div"></div>
   </template>
 
   <script>
     Polymer({
       is: 'x-foo',
+      listeners: {
+        tap: 'tapHandler'
+      },
       tapHandler: function(e) {
-        this._testLocalTarget = Polymer.dom(e).localTarget;
-        this._testRootTarget = Polymer.dom(e).rootTarget;
+        var ev = Polymer.dom(e);
+        this._testLocalTarget = ev.localTarget;
+        this._testRootTarget = ev.rootTarget;
       }
     });
   </script>
@@ -36,15 +40,19 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <dom-module id="x-app">
 
   <template>
-    <x-foo id="foo" on-tap="tapHandler"></x-foo>
+    <x-foo id="foo"></x-foo>
   </template>
 
   <script>
     Polymer({
       is: 'x-app',
+      listeners: {
+        tap: 'tapHandler'
+      },
       tapHandler: function(e) {
-        this._testLocalTarget = Polymer.dom(e).localTarget;
-        this._testRootTarget = Polymer.dom(e).rootTarget;
+        var ev = Polymer.dom(e);
+        this._testLocalTarget = ev.localTarget;
+        this._testRootTarget = ev.rootTarget;
       }
     });
   </script>
@@ -109,5 +117,50 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         this.handle(e);
       }
     });
+  </script>
+</dom-module>
+
+<dom-module id="x-buttons">
+  <script>
+    Polymer({
+      is: 'x-buttons',
+      listeners: {
+        'down': 'handle',
+        'up': 'handle',
+        'tap': 'handle',
+        'track': 'handle'
+      },
+      created: function() {
+        this.stream = [];
+      },
+      handle: function(e) {
+        this.stream.push(e);
+      }
+    });
+  </script>
+</dom-module>
+
+<dom-module id="x-document-listener">
+  <script>
+  Polymer({
+    is: 'x-document-listener',
+    properties: {
+      stream: {
+        type: Array,
+        value: function() {
+          return [];
+        }
+      }
+    },
+    setup: function() {
+      this.listen(document, 'down', 'handler');
+    },
+    teardown: function() {
+      this.unlisten(document, 'down', 'handler');
+    },
+    handler: function(e) {
+      this.stream.push(e);
+    }
+  });
   </script>
 </dom-module>
